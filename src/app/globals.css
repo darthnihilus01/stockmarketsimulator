@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+/* =========================================================
+   DESIGN TOKENS — Extracted from Stitch "Stockmarket Terminal"
+   ========================================================= */
+
+:root {
+  /* ── Core palette ── */
+  --color-background: #000000;
+  --color-surface: #131313;
+  --color-surface-alt: #050505;
+  --color-surface-dim: #131313;
+  --color-surface-bright: #393939;
+  --color-surface-container-lowest: #0e0e0e;
+  --color-surface-container-low: #1b1b1b;
+  --color-surface-container: #1f1f1f;
+  --color-surface-container-high: #2a2a2a;
+  --color-surface-container-highest: #353535;
+  --color-surface-variant: #353535;
+
+  /* ── Amber / Primary ── */
+  --color-primary: #ff9900;
+  --color-primary-bright: #ffc082;
+  --color-primary-container: #ff9900;
+  --color-on-primary: #4a2800;
+  --color-on-primary-container: #653a00;
+  --color-muted-bronze: #886600;
+
+  /* ── Secondary ── */
+  --color-secondary: #ffecc0;
+  --color-secondary-container: #fecb00;
+
+  /* ── Tertiary ── */
+  --color-tertiary: #f3c762;
+  --color-tertiary-container: #d5ac4a;
+
+  /* ── Status ── */
+  --color-positive: #00ff00;
+  --color-negative: #ff0000;
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+
+  /* ── Neutrals ── */
+  --color-on-surface: #e2e2e2;
+  --color-on-surface-variant: #dbc2ad;
+  --color-on-background: #e2e2e2;
+  --color-outline: #a38d7a;
+  --color-outline-variant: #554434;
+  --color-grid-line: #333333;
+  --color-inverse-surface: #e2e2e2;
+  --color-inverse-on-surface: #303030;
+
+  /* ── Spacing ── */
+  --spacing-unit: 4px;
+  --spacing-margin-edge: 8px;
+  --spacing-panel-padding: 14px;
+  --spacing-gutter: 1px;
+  --spacing-row-height-sm: 20px;
+  --spacing-row-height-md: 24px;
+}
+
+/* ── Tailwind v4 theme extension ── */
+@theme inline {
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-on-surface);
+  --color-surface: var(--color-surface);
+  --color-surface-alt: var(--color-surface-alt);
+  --color-surface-dim: var(--color-surface-dim);
+  --color-surface-bright: var(--color-surface-bright);
+  --color-surface-container: var(--color-surface-container);
+  --color-surface-container-low: var(--color-surface-container-low);
+  --color-surface-container-lowest: var(--color-surface-container-lowest);
+  --color-surface-container-high: var(--color-surface-container-high);
+  --color-surface-container-highest: var(--color-surface-container-highest);
+  --color-surface-variant: var(--color-surface-variant);
+  --color-primary: var(--color-primary);
+  --color-primary-bright: var(--color-primary-bright);
+  --color-primary-container: var(--color-primary-container);
+  --color-on-primary: var(--color-on-primary);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-muted-bronze: var(--color-muted-bronze);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-tertiary: var(--color-tertiary);
+  --color-tertiary-container: var(--color-tertiary-container);
+  --color-positive: var(--color-positive);
+  --color-negative: var(--color-negative);
+  --color-error: var(--color-error);
+  --color-error-container: var(--color-error-container);
+  --color-on-surface: var(--color-on-surface);
+  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-on-background: var(--color-on-background);
+  --color-outline: var(--color-outline);
+  --color-outline-variant: var(--color-outline-variant);
+  --color-grid-line: var(--color-grid-line);
+  --color-inverse-surface: var(--color-inverse-surface);
+  --color-inverse-on-surface: var(--color-inverse-on-surface);
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+/* ── Base styles ── */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-background);
+  color: var(--color-primary);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+/* ── Typography presets ── */
+.text-headline-lg {
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+
+.text-headline-md {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+}
+
+.text-body-default {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.text-body-tabular {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-label-caps {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.text-label-small {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.text-input-text {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+/* ── Blinking cursor ── */
+@keyframes blink {
+  50% { opacity: 0; }
+}
+.blinking-cursor {
+  animation: blink 1s step-end infinite;
+}
+
+/* ── CRT Scanline overlay ── */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.crt-overlay::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.05) 2px,
+    rgba(0, 0, 0, 0.05) 4px
+  );
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-surface-alt);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-grid-line);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-bronze);
+}
+
+/* ── Panel borders ── */
+.panel-border {
+  border: 1px solid var(--color-grid-line);
+}
+
+.panel-header {
+  border-bottom: 1px solid var(--color-muted-bronze);
+  padding: 8px;
+}
