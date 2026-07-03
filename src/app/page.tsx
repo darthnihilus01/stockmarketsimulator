@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
-import { useSimulation } from '@/hooks/useSimulation';
+import { usePrices } from '@/hooks/usePrices';
+import { useNews } from '@/hooks/useNews';
 import { TabNavigation } from '@/components/Layout/TabNavigation';
 import { OrderWidget } from '@/components/Trade/OrderWidget';
 import { PriceChart } from '@/components/Trade/PriceChart';
@@ -13,10 +14,14 @@ import { ResearchTable } from '@/components/Research/ResearchTable';
 import { ToastContainer } from '@/components/shared/Toast';
 
 export default function TerminalPage() {
+  const stocks = useStore((s) => s.stocks);
+  const selectedTicker = useStore((s) => s.selectedTicker);
+  const setSelectedTicker = useStore((s) => s.setSelectedTicker);
   const activeTab = useStore((s) => s.activeTab);
   const [sysTime, setSysTime] = useState('');
 
-  useSimulation();
+  usePrices();
+  useNews();
 
   // System clock
   useEffect(() => {
@@ -48,6 +53,46 @@ export default function TerminalPage() {
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar — ticker nav only on Trade tab */}
+        {activeTab === 'trade' && (
+          <aside className="w-48 bg-[#050505] border-r border-grid-line flex flex-col justify-between shrink-0 hidden md:flex">
+            <div className="flex flex-col">
+              <div className="p-3 border-b border-grid-line">
+                <div className="text-headline-md text-[#ff9900]">SYS_STATUS</div>
+                <div className="text-[10px] text-[#886600] mt-1 uppercase">FED RESERVE FEED: OK</div>
+              </div>
+              <nav className="flex flex-col mt-2" aria-label="Ticker navigation">
+                {Object.keys(stocks).map((sym) => (
+                  <button
+                    key={sym}
+                    onClick={() => setSelectedTicker(sym)}
+                    className={`px-4 py-2 text-left text-label-caps flex justify-between items-center transition-all cursor-pointer ${selectedTicker === sym
+                      ? 'bg-[#ff9900] text-black border-l-4 border-yellow-600 font-bold'
+                      : 'text-[#a38d7a] hover:bg-[#1f1f1f] hover:text-[#ff9900]'
+                      }`}
+                    aria-label={`Select ${sym}`}
+                    aria-pressed={selectedTicker === sym}
+                  >
+                    <span>{sym}</span>
+                    {stocks[sym] && (
+                      <span className={`text-[10px] ${selectedTicker === sym
+                        ? 'text-black'
+                        : (stocks[sym].price >= stocks[sym].prevClose ? 'text-[#00ff00]' : 'text-[#ff0000]')
+                        }`}>
+                        {stocks[sym].price.toFixed(1)}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </nav>
+            </div>
+            <div className="p-3 border-t border-grid-line">
+              <div className="text-[10px] text-[#886600]">API HOST: CLOUD_NET</div>
+              <div className="text-[10px] text-white">LATENCY: 4.2ms</div>
+            </div>
+          </aside>
+        )}
+
         {/* Main Content Area */}
         <main className="flex-1 overflow-hidden">
           {activeTab === 'trade' && (
