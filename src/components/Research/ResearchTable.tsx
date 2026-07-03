@@ -18,7 +18,7 @@ export function ResearchTable() {
       !query ||
       s.symbol.toLowerCase().includes(query) ||
       s.name.toLowerCase().includes(query) ||
-      (s.type && s.type.toLowerCase().includes(query))
+      (s.sector && s.sector.toLowerCase().includes(query))
     );
   }, [stocks, search]);
 
@@ -79,7 +79,7 @@ export function ResearchTable() {
                     {isPositive ? '▲' : '▼'} {changePercent.toFixed(2)}%
                   </td>
                   <td className="p-2">
-                    <span className="bg-[#222] text-[#d5ac4a] px-1.5 py-0.5 text-[10px]">{stock.type || 'N/A'}</span>
+                    <span className="bg-[#222] text-[#d5ac4a] px-1.5 py-0.5 text-[10px]">{stock.sector || 'N/A'}</span>
                   </td>
                   <td className="p-2 text-center">
                     <button

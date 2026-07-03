@@ -10,7 +10,7 @@ function parseTime(timeStr: string): Date {
 export function buildChartOptions(
   history: Candle[],
   chartType: ChartType,
-  _timeframe: string,
+  _timeframe: string, // eslint-disable-line @typescript-eslint/no-unused-vars
 ) {
   if (history.length === 0) return {};
 

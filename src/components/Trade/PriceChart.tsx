@@ -9,64 +9,39 @@ import { buildChartOptions } from '@/services/echartsOptions';
 const TIMEFRAMES = ['1D', '1W', '1M', '3M', '6M', '1Y', 'MAX'] as const;
 
 export function PriceChart() {
-  const stocks = useStore((s) => s.stocks);
-  const selectedTicker = useStore((s) => s.selectedTicker);
+  const activeStock = useStore((s) => (s.selectedTicker ? s.stocks[s.selectedTicker] : undefined));
   const chartType = useStore((s) => s.chartType);
   const timeframe = useStore((s) => s.timeframe);
   const setChartType = useStore((s) => s.setChartType);
   const setTimeframe = useStore((s) => s.setTimeframe);
 
-  const chartRef = useRef<ReactECharts | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const activeStock = selectedTicker ? stocks[selectedTicker] : undefined;
-
-  const slicedHistory = useMemo(() => {
-    if (!activeStock?.history) return [];
-    const h = activeStock.history;
-    switch (timeframe) {
-      case '1D': return h;
-      case '1W': return h;
-      case '1M': return h;
-      default: return h;
-    }
-  }, [activeStock?.history, timeframe]);
+  const chartRef = useRef<ReactECharts>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const options = useMemo(
-    () => buildChartOptions(slicedHistory, chartType, timeframe),
-    [slicedHistory, chartType, timeframe],
+    () => buildChartOptions(activeStock?.history ?? [], chartType, timeframe),
+    [activeStock?.history, chartType, timeframe],
   );
 
+  const resize = useCallback(() => {
+    try { chartRef.current?.getEchartsInstance()?.resize(); } catch {}
+  }, []);
+
   const onChartReady = useCallback(() => {
-    if (chartRef.current) {
-      const instance = chartRef.current.getEchartsInstance();
-      instance?.resize();
-    }
-  }, []);
+    setTimeout(resize, 0);
+  }, [resize]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver(() => {
-      if (chartRef.current) {
-        const instance = chartRef.current.getEchartsInstance();
-        instance?.resize();
-      }
-    });
-
-    observer.observe(container);
+    const el = wrapperRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(resize);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [resize]);
 
   useEffect(() => {
-    if (!chartRef.current || !activeStock?.history) return;
-    const instance = chartRef.current.getEchartsInstance();
-    if (!instance) return;
-
-    const newOpts = buildChartOptions(slicedHistory, chartType, timeframe);
-    instance.setOption(newOpts, { notMerge: false, lazyUpdate: true });
-  }, [stocks, selectedTicker, activeStock]);
+    setTimeout(resize, 50);
+  }, [options, resize]);
 
   if (!activeStock) {
     return (
@@ -105,6 +80,7 @@ export function PriceChart() {
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf}
+                type="button"
                 onClick={() => setTimeframe(tf)}
                 className={`px-1.5 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
                   timeframe === tf
@@ -121,6 +97,7 @@ export function PriceChart() {
           <div className="w-px h-4 bg-[#2B2B2B] mx-1" />
           <div className="flex gap-0.5">
             <button
+              type="button"
               onClick={() => setChartType('line')}
               className={`px-1.5 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
                 chartType === 'line'
@@ -133,6 +110,7 @@ export function PriceChart() {
               LINE
             </button>
             <button
+              type="button"
               onClick={() => setChartType('candlestick')}
               className={`px-1.5 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
                 chartType === 'candlestick'
@@ -147,13 +125,13 @@ export function PriceChart() {
           </div>
         </div>
       </div>
-      <div ref={containerRef} className="flex-1 min-h-0">
+      <div ref={wrapperRef} className="flex-1 min-h-0 relative">
         <ReactECharts
           ref={chartRef}
           option={options}
-          style={{ height: '100%', width: '100%' }}
           onChartReady={onChartReady}
-          notMerge
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          notMerge={false}
           lazyUpdate
         />
       </div>

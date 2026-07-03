@@ -1,9 +1,29 @@
 import { create } from 'zustand';
-import type { TabId, StockData, NewsItem, PortfolioState, OrderAction, ChartType } from '@/types';
-import { createInitialStocks, tickPrice } from '@/services/priceEngine';
-import { createInitialPortfolio, applyTradeToPortfolio } from '@/services/portfolioEngine';
+import type { TabId, StockData, NewsItem, PortfolioState, OrderAction, ChartType, MarketState } from '@/types';
+import { MarketEngine } from '@/engine/MarketEngine';
+import { STOCK_DEFINITIONS } from '@/engine/seed/stocks';
+import { applyTradeToPortfolio } from '@/services/portfolioEngine';
 import { executeTrade, validateTrade } from '@/services/tradeEngine';
-import { generateNewsItem } from '@/services/newsEngine';
+
+const marketEngine = new MarketEngine();
+
+const initialStocks: Record<string, StockData> = {};
+for (const stock of marketEngine.getStocks()) {
+  initialStocks[stock.symbol] = stock;
+}
+
+function createInitialPortfolio(): PortfolioState {
+  const totalMarket = STOCK_DEFINITIONS.reduce((sum, s) => sum + s.basePrice, 0);
+  return {
+    cash: 1000000,
+    startingCapital: 1000000,
+    positions: {},
+    tradeHistory: [],
+    valueHistory: [
+      { time: '09:30:00', portfolio: 1000000, market: totalMarket },
+    ],
+  };
+}
 
 interface AppState {
   activeTab: TabId;
@@ -16,6 +36,8 @@ interface AppState {
   news: NewsItem[];
   portfolio: PortfolioState;
   notifications: { id: string; text: string }[];
+  marketState: MarketState;
+  tick: number;
 
   setActiveTab: (tab: TabId) => void;
   setSelectedTicker: (ticker: string | null) => void;
@@ -23,16 +45,15 @@ interface AppState {
   setQuantity: (qty: number) => void;
   setChartType: (type: ChartType) => void;
   setTimeframe: (tf: string) => void;
-  tickPrices: () => void;
-  addNews: () => void;
+  engineTick: () => void;
   submitOrder: () => string | null;
   clearOrder: () => void;
   dismissNotification: (id: string) => void;
   addNotification: (text: string) => void;
+  getMarketEngine: () => MarketEngine;
 }
 
 export const useStore = create<AppState>((set, get) => {
-  const initialStocks = createInitialStocks();
   const initialPortfolio = createInitialPortfolio();
 
   return {
@@ -43,15 +64,11 @@ export const useStore = create<AppState>((set, get) => {
     quantity: 100,
     chartType: 'line',
     timeframe: '1D',
-    news: [
-      { id: 'init1', time: '09:05:22', text: 'MSFT ACQUISITION RUMORS INTENSIFY', type: 'NORMAL' },
-      { id: 'init2', time: '09:15:00', text: '[MACRO] UNEMPLOYMENT DATA SHOWS DECLINE', type: 'NORMAL' },
-      { id: 'init3', time: '09:25:10', text: 'TSLA SECURES NEW GIGAFACTORY LOCATION', type: 'NORMAL' },
-      { id: 'init4', time: '09:28:42', text: '[URGENT] AAPL Q3 EARNINGS MISS ESTIMATES', type: 'URGENT' },
-      { id: 'init5', time: '09:30:15', text: '[MACRO] FED ANNOUNCES INTEREST RATE DECISION', type: 'NORMAL' },
-    ],
+    news: [],
     portfolio: initialPortfolio,
     notifications: [],
+    marketState: marketEngine.getMarketState(),
+    tick: 0,
 
     setActiveTab: (tab) => set({ activeTab: tab }),
     setSelectedTicker: (ticker) => set({ selectedTicker: ticker }),
@@ -60,13 +77,55 @@ export const useStore = create<AppState>((set, get) => {
     setChartType: (type) => set({ chartType: type }),
     setTimeframe: (tf) => set({ timeframe: tf }),
 
-    tickPrices: () => {
-      set((state) => ({ stocks: tickPrice(state.stocks) }));
-    },
+    engineTick: () => {
+      marketEngine.tick();
 
-    addNews: () => {
-      const item = generateNewsItem();
-      set((state) => ({ news: [...state.news, item] }));
+      const newStocksList = marketEngine.getStocks();
+      const newStocks: Record<string, StockData> = {};
+      for (const s of newStocksList) {
+        newStocks[s.symbol] = s;
+      }
+
+      const newNews = marketEngine.getNewsItems();
+      const marketState = marketEngine.getMarketState();
+      const tick = marketEngine.getTick();
+
+      const currentState = get();
+      const port = currentState.portfolio;
+      const currentPrices: Record<string, number> = {};
+      for (const s of newStocksList) {
+        currentPrices[s.symbol] = s.price;
+      }
+
+      let totalPositionValue = 0;
+      for (const [ticker, pos] of Object.entries(port.positions)) {
+        const price = currentPrices[ticker] ?? pos.averageCost;
+        totalPositionValue += pos.shares * price;
+      }
+
+      const totalMarket = STOCK_DEFINITIONS.reduce((sum, s) => sum + s.basePrice, 0);
+
+      const portfolioValue = port.cash + totalPositionValue;
+
+      const newValueHistory = [
+        ...port.valueHistory,
+        {
+          time: marketState.tick.toString(),
+          portfolio: portfolioValue,
+          market: totalMarket * (1 + marketState.marketReturn),
+        },
+      ].slice(-500);
+
+      set({
+        stocks: newStocks,
+        news: newNews,
+        marketState,
+        tick,
+        portfolio: {
+          ...port,
+          valueHistory: newValueHistory,
+        },
+      });
     },
 
     submitOrder: () => {
@@ -87,12 +146,6 @@ export const useStore = create<AppState>((set, get) => {
         notifications: [...state.notifications, {
           id: `notif_${Date.now()}`,
           text: `EXECUTED: ${orderAction} ${quantity} ${selectedTicker} @ $${stock.price.toFixed(2)}`,
-        }],
-        news: [...state.news, {
-          id: `trade_news_${Date.now()}`,
-          time: trade.time,
-          text: `[TRADE] INDIVIDUAL ACCOUNT ${orderAction}S ${quantity} SHARES OF ${selectedTicker}`,
-          type: 'ALERT',
         }],
       });
 
@@ -118,5 +171,7 @@ export const useStore = create<AppState>((set, get) => {
         get().dismissNotification(id);
       }, 4500);
     },
+
+    getMarketEngine: () => marketEngine,
   };
 });

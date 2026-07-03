@@ -26,7 +26,7 @@ export function DocumentModal({ ticker, stock, onClose }: DocumentModalProps) {
             {stock.symbol} — RESEARCH
           </DialogTitle>
           <DialogDescription className="text-[#886600] text-[11px]">
-            {stock.name} · {stock.type || 'EQUITY'}
+            {stock.name} · {stock.sector}
           </DialogDescription>
         </DialogHeader>
         <div className="text-[13px] leading-relaxed text-[#e2e2e2] whitespace-pre-wrap">

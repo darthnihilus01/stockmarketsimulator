@@ -3,14 +3,15 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
 
-export function useNews() {
-  const addNews = useStore((s) => s.addNews);
+export function useSimulation() {
+  const engineTick = useStore((s) => s.engineTick);
+  const tick = useStore((s) => s.tick);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    intervalRef.current = setInterval(addNews, 15000);
+    intervalRef.current = setInterval(engineTick, 400);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [addNews]);
+  }, [engineTick]);
 }
