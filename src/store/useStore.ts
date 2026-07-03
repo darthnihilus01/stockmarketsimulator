@@ -1,16 +1,8 @@
 import { create } from 'zustand';
 import type { TabId, StockData, NewsItem, PortfolioState, OrderAction, ChartType, MarketState } from '@/types';
-import { MarketEngine } from '@/engine/MarketEngine';
 import { STOCK_DEFINITIONS } from '@/engine/seed/stocks';
 import { applyTradeToPortfolio } from '@/services/portfolioEngine';
 import { executeTrade, validateTrade } from '@/services/tradeEngine';
-
-const marketEngine = new MarketEngine();
-
-const initialStocks: Record<string, StockData> = {};
-for (const stock of marketEngine.getStocks()) {
-  initialStocks[stock.symbol] = stock;
-}
 
 function createInitialPortfolio(): PortfolioState {
   const totalMarket = STOCK_DEFINITIONS.reduce((sum, s) => sum + s.basePrice, 0);
@@ -45,12 +37,16 @@ interface AppState {
   setQuantity: (qty: number) => void;
   setChartType: (type: ChartType) => void;
   setTimeframe: (tf: string) => void;
-  engineTick: () => void;
+  applySnapshot: (data: {
+    stocks: StockData[];
+    news: NewsItem[];
+    marketState: MarketState;
+    tick: number;
+  }) => void;
   submitOrder: () => string | null;
   clearOrder: () => void;
   dismissNotification: (id: string) => void;
   addNotification: (text: string) => void;
-  getMarketEngine: () => MarketEngine;
 }
 
 export const useStore = create<AppState>((set, get) => {
@@ -58,7 +54,7 @@ export const useStore = create<AppState>((set, get) => {
 
   return {
     activeTab: 'trade',
-    stocks: initialStocks,
+    stocks: {},
     selectedTicker: 'AAPL',
     orderAction: 'BUY',
     quantity: 100,
@@ -67,7 +63,7 @@ export const useStore = create<AppState>((set, get) => {
     news: [],
     portfolio: initialPortfolio,
     notifications: [],
-    marketState: marketEngine.getMarketState(),
+    marketState: { tick: 0, factorStrengths: {}, activeContributions: [], marketReturn: 0 },
     tick: 0,
 
     setActiveTab: (tab) => set({ activeTab: tab }),
@@ -77,26 +73,19 @@ export const useStore = create<AppState>((set, get) => {
     setChartType: (type) => set({ chartType: type }),
     setTimeframe: (tf) => set({ timeframe: tf }),
 
-    engineTick: () => {
-      marketEngine.tick();
-
-      const newStocksList = marketEngine.getStocks();
+    applySnapshot: (data) => {
       const newStocks: Record<string, StockData> = {};
-      for (const s of newStocksList) {
+      for (const s of data.stocks) {
         newStocks[s.symbol] = s;
       }
 
-      const newNews = marketEngine.getNewsItems();
-      const marketState = marketEngine.getMarketState();
-      const tick = marketEngine.getTick();
-
-      const currentState = get();
-      const port = currentState.portfolio;
       const currentPrices: Record<string, number> = {};
-      for (const s of newStocksList) {
+      for (const s of data.stocks) {
         currentPrices[s.symbol] = s.price;
       }
 
+      const state = get();
+      const port = state.portfolio;
       let totalPositionValue = 0;
       for (const [ticker, pos] of Object.entries(port.positions)) {
         const price = currentPrices[ticker] ?? pos.averageCost;
@@ -104,23 +93,22 @@ export const useStore = create<AppState>((set, get) => {
       }
 
       const totalMarket = STOCK_DEFINITIONS.reduce((sum, s) => sum + s.basePrice, 0);
-
       const portfolioValue = port.cash + totalPositionValue;
 
       const newValueHistory = [
         ...port.valueHistory,
         {
-          time: marketState.tick.toString(),
+          time: data.tick.toString(),
           portfolio: portfolioValue,
-          market: totalMarket * (1 + marketState.marketReturn),
+          market: totalMarket * (1 + data.marketState.marketReturn),
         },
       ].slice(-500);
 
       set({
         stocks: newStocks,
-        news: newNews,
-        marketState,
-        tick,
+        news: data.news,
+        marketState: data.marketState,
+        tick: data.tick,
         portfolio: {
           ...port,
           valueHistory: newValueHistory,
@@ -171,7 +159,5 @@ export const useStore = create<AppState>((set, get) => {
         get().dismissNotification(id);
       }, 4500);
     },
-
-    getMarketEngine: () => marketEngine,
   };
 });

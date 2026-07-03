@@ -1,69 +1,73 @@
-import { FACTORS, FACTOR_CORRELATION_MATRIX, FACTOR_NOISE_SIGMA, FACTOR_IDS } from './seed/factors';
-import { choleskyDecomposition, applyCholesky, normalRandom, clamp } from './MathUtils';
-import type { FactorContribution } from '@/types';
+// spec: 4.3 — Factor Returns
+// F(t) = ν × (Lz) ⊙ σ_factor + S(t)
 
-const FACTOR_MEAN_REVERSION_RATE = 0.01;
-const FACTOR_SIGMA = 0.15;
+import { FACTORS, FACTOR_CORRELATION_MATRIX, FACTOR_IDS, FACTOR_SIGMA } from './seed/factors';
+import { VOL_SCALE } from './constants';
+import { choleskyDecomposition, isPSD, nearestPSD, applyCholesky } from './math/Correlation';
+import { getGlobalRng } from './math/Random';
 
 let choleskyCache: number[][] | null = null;
+let psdChecked = false;
 
-function getCholesky(): number[][] {
-  if (!choleskyCache) {
-    choleskyCache = choleskyDecomposition(FACTOR_CORRELATION_MATRIX);
-    if (!choleskyCache) {
-      choleskyCache = Array.from({ length: FACTOR_IDS.length }, (_, i) => {
-        const row = new Array(FACTOR_IDS.length).fill(0);
-        row[i] = 1;
-        return row;
-      });
-    }
+export function getFactorCount(): number {
+  return FACTOR_IDS.length;
+}
+
+export function getFactorIds(): string[] {
+  return FACTOR_IDS;
+}
+
+export function initializeFactorEngine(): void {
+  let C = FACTOR_CORRELATION_MATRIX;
+  if (!isPSD(C)) {
+    console.warn('FactorEngine: correlation matrix not PSD, repairing...');
+    C = nearestPSD(C);
   }
-  return choleskyCache;
+  choleskyCache = choleskyDecomposition(C);
+  psdChecked = true;
 }
 
-export function generateCorrelatedFactorReturns(): number[] {
-  const L = getCholesky();
-  const uncorrelated = FACTOR_IDS.map(() => normalRandom());
-  return applyCholesky(L, uncorrelated);
-}
-
+// spec: 4.3 — F(t) = ν × (Lz) ⊙ σ_factor + S(t)
 export function computeFactorReturns(
-  currentStrengths: Record<string, number>,
-  activeContributions: FactorContribution[],
-  tick: number,
-): { newStrengths: Record<string, number>; innovation: number } {
-  const correlatedShocks = generateCorrelatedFactorReturns();
-  let marketInnovation = 0;
-
-  const newStrengths: Record<string, number> = {};
-
-  for (let i = 0; i < FACTOR_IDS.length; i++) {
-    const fId = FACTOR_IDS[i];
-    const current = currentStrengths[fId] ?? 0;
-
-    const contributionSum = activeContributions
-      .filter((c) => c.factorId === fId && tick < c.expiryTick)
-      .reduce((sum, c) => sum + c.strength, 0);
-
-    const meanReversion = -FACTOR_MEAN_REVERSION_RATE * current;
-
-    const noiseShock = correlatedShocks[i] * FACTOR_SIGMA;
-    const contributionDecay = -current * 0.001;
-
-    const delta = meanReversion + contributionSum + noiseShock + contributionDecay;
-
-    newStrengths[fId] = clamp(current + delta, -1, 1);
-
-    if (fId === 'risk') {
-      marketInnovation += Math.abs(newStrengths[fId] - current) * 0.5;
-    }
-    if (fId === 'domestic') {
-      marketInnovation += (newStrengths[fId] - current) * 0.3;
-    }
-    if (fId === 'consumer') {
-      marketInnovation += (newStrengths[fId] - current) * 0.2;
-    }
+  factorShocks: Record<string, number>,
+): number[] {
+  if (!choleskyCache || !psdChecked) {
+    initializeFactorEngine();
   }
 
-  return { newStrengths, innovation: clamp(marketInnovation, -0.5, 0.5) };
+  const rng = getGlobalRng();
+  const n = FACTOR_IDS.length;
+
+  // z ~ N(0, I)
+  const z = new Array(n).fill(0).map(() => rng.nextNormal());
+
+  // Lz — correlated standard normals
+  const correlated: number[] = choleskyCache
+    ? applyCholesky(choleskyCache, z)
+    : z;
+
+  // F(t) = ν × (Lz) ⊙ σ_factor + S(t)
+  const factorReturns: number[] = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) {
+    const fId = FACTOR_IDS[i];
+    const sigma = FACTOR_SIGMA[i] ?? 0.1;
+    const shock = factorShocks[fId] ?? 0;
+    factorReturns[i] = VOL_SCALE * correlated[i] * sigma + shock;
+  }
+
+  return factorReturns;
+}
+
+// spec: 4.3 — aggregate factor news S(t)
+export function getFactorNews(
+  factorId: string,
+  activeEvents: { targetFactor: string; shock: number }[],
+): number {
+  let total = 0;
+  for (const ev of activeEvents) {
+    if (ev.targetFactor === factorId) {
+      total += ev.shock;
+    }
+  }
+  return total;
 }

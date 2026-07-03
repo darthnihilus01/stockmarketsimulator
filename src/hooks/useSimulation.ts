@@ -2,16 +2,30 @@
 
 import { useEffect, useRef } from 'react';
 import { useStore } from '@/store/useStore';
+import { SimulationEngine } from '@/engine/SimulationEngine';
 
 export function useSimulation() {
-  const engineTick = useStore((s) => s.engineTick);
-  const tick = useStore((s) => s.tick);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const applySnapshot = useStore((s) => s.applySnapshot);
+  const engineRef = useRef<SimulationEngine | null>(null);
 
   useEffect(() => {
-    intervalRef.current = setInterval(engineTick, 400);
+    const engine = new SimulationEngine(Date.now());
+    engineRef.current = engine;
+
+    engine.onSnapshot((snapshot) => {
+      applySnapshot({
+        stocks: snapshot.stocks,
+        news: snapshot.news,
+        marketState: snapshot.marketState,
+        tick: snapshot.tick,
+      });
+    });
+
+    engine.start(400);
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      engine.stop();
+      engineRef.current = null;
     };
-  }, [engineTick]);
+  }, [applySnapshot]);
 }

@@ -28,4 +28,18 @@ export const FACTOR_CORRELATION_MATRIX: number[][] = [
   [0.0,  0.4,  0.2,  0.0,  0.3, -0.2,  0.1,  0.3, -0.3,  1.0],
 ];
 
+// spec: 4.3 — σ_factor per factor, used in F(t) = ν × (Lz) ⊙ σ_factor + S(t)
+export const FACTOR_SIGMA: number[] = [
+  0.15,  // crude
+  0.12,  // rates
+  0.18,  // tech
+  0.10,  // metals
+  0.11,  // consumer
+  0.14,  // supply
+  0.13,  // energy
+  0.11,  // credit
+  0.16,  // risk
+  0.09,  // domestic
+];
+
 export const FACTOR_NOISE_SIGMA = 0.08;
